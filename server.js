@@ -45,12 +45,14 @@ app.use(
         description: String!
         price: Float!
         date: String!
+        creator: User!
     }
 
     type User {
         _id: ID!
         email: String!
         password: String
+        createdEvents: [Event!]
     }
 
     schema {
@@ -61,9 +63,17 @@ app.use(
 			events: () => {
 				// Events is of Type Event with _id, title, description, price and date.
 				return Event.find()
+					.populate("creator")
 					.then(async events => {
 						return events.map(async event => {
-							return { ...event._doc, _id: event.id };
+							return {
+								...event._doc,
+								_id: event.id,
+								creator: {
+									...event._doc.creator._doc,
+									_id: event._doc.creator.id
+								}
+							};
 						});
 					})
 					.catch(async err => {
@@ -79,26 +89,24 @@ app.use(
 					description: args.eventInput.description,
 					price: +args.eventInput.price,
 					date: new Date(args.eventInput.date),
-					creator: "5df6c81f24b6fe79503d098c"
+					creator: "5df6c82e0efe01ce384f114e"
 				});
 				let createdEvent;
 				return event
 					.save()
 					.then(async result => {
-						createEvent = result._doc;
-						return User.findById("5df6c81f24b6fe79503d098c");
-						console.log(`Save Result: ${result}`);
-						return { ...result._doc, _id: event.id };
+						createdEvent = { ...result._doc, _id: result._doc._id.toString() };
+						return User.findById("5df6c82e0efe01ce384f114e");
 					})
 					.then(async user => {
-						if (user) {
-							throw new Error("User exists already");
+						if (!user) {
+							throw new Error("User not found");
 						}
 						user.createdEvents.push(event);
 						return user.save();
 					})
 					.then(async result => {
-						return { ...createdEvents };
+						return createdEvent;
 					})
 					.catch(async err => {
 						console.log(`Save Error: ${err}`);
